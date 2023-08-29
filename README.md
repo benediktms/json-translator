@@ -1,5 +1,5 @@
 # json-translator
-Translates only the values of a JSON structure using the DeepL translation API
+An application that translates only the values of a JSON structure using the DeepL translation API
 
 ## What is this for?
 When working with web applications that require localization, you often use JSON files to store the translation strings. 
@@ -11,6 +11,8 @@ JSON values to kick start this process and make it slightly less painful.
 ### Note
 This application is not perfect and basically all the translation functionality is dependent on DeepL, and sometimes translations will be skipped, or translated incorrectly.
 This is not a silver bullet for all your translation needs, it is simply meant to help you start this process.
+
+This application uses an incredibly basic and probably broken caching mechanism to avoid making unecessary calls to the translation endpoint. When in doubt delete the cache file (`data/cache_{target-language}.json`).
 
 ## Usage
 You must have Rust and Cargo installed locally to use this application. Additionally you will also need to sign up for an
