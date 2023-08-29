@@ -9,7 +9,7 @@ This can make translating those JSON files a bit of a pain. This small program w
 JSON values to kick start this process and make it slightly less painful.
 
 ### Note
-This application is not perfect and all the translation functionality is, and sometimes translations will be skipped, or translated incorrectly.
+This application is not perfect and basically all the translation functionality is dependent on DeepL, and sometimes translations will be skipped, or translated incorrectly.
 This is not a silver bullet for all your translation needs, it is simply meant to help you start this process.
 
 ## Usage
