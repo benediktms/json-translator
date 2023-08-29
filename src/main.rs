@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => HashMap::new(),
     };
 
+    // The suffix is used as a way to split the translation batches
     let suffix = "::";
 
     // Read the JSON file
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     collect_values(&json_value, &mut values_to_translate, "");
 
     let mut flat_map = HashMap::new();
-    collapse_json_structure(&json_value, &mut flat_map, "");
+    flatten_json(&json_value, &mut flat_map, "");
 
     // Translate the values
     let translated_values = translate_values(
@@ -59,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Reconstruct the JSON with translated values
-    let translated_json = rebuild_json_structure(&flat_map);
+    let translated_json = rebuild_json(&flat_map);
 
     // Write the translated JSON to a new file
     let output_file_path = format!("data/{}_{}.json", Utc::now().timestamp(), target_lang);
@@ -86,11 +87,7 @@ fn write_json<P: AsRef<Path>>(path: P, value: &Value) -> io::Result<()> {
     Ok(())
 }
 
-fn collapse_json_structure(
-    json_value: &Value,
-    flat_map: &mut HashMap<String, Value>,
-    prefix: &str,
-) {
+fn flatten_json(json_value: &Value, flat_map: &mut HashMap<String, Value>, prefix: &str) {
     match json_value {
         Value::Object(map) => {
             for (key, value) in map {
@@ -99,13 +96,13 @@ fn collapse_json_structure(
                 } else {
                     format!("{}->{}", prefix, key)
                 };
-                collapse_json_structure(value, flat_map, &new_prefix);
+                flatten_json(value, flat_map, &new_prefix);
             }
         }
         Value::Array(arr) => {
             for (index, value) in arr.iter().enumerate() {
                 let new_prefix = format!("{}[{}]", prefix, index);
-                collapse_json_structure(value, flat_map, &new_prefix);
+                flatten_json(value, flat_map, &new_prefix);
             }
         }
         _ => {
@@ -143,7 +140,7 @@ fn insert_into_json(target: &mut Value, keys: &[&str], value: &Value) {
     }
 }
 
-fn rebuild_json_structure(flat_map: &HashMap<String, Value>) -> Value {
+fn rebuild_json(flat_map: &HashMap<String, Value>) -> Value {
     let mut json_value = json!({});
 
     for (key, value) in flat_map {
@@ -186,6 +183,8 @@ async fn translate_values(
     suffix: &str,
     cache: &mut HashMap<String, String>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    const BATCH_SIZE: usize = 1500;
+
     let mut translated = HashMap::new();
     let mut batch = String::new();
     let mut batch_length = 0;
@@ -200,7 +199,7 @@ async fn translate_values(
         }
 
         let new_length = batch_length + value.len() + suffix.len();
-        if new_length > 1500 {
+        if new_length > BATCH_SIZE {
             // Translate the current batch
             let translated_batch =
                 translate_batch(&batch, &keys_for_batch, api_key, target_lang, suffix, cache)
