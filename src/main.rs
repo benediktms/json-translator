@@ -13,6 +13,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 const BATCH_SIZE_LIMIT: usize = 1500;
+const SPLIT_SUFFIX: &str = "$::$";
 
 #[derive(Debug)]
 struct Config {
@@ -45,9 +46,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => HashMap::new(),
     };
 
-    // The suffix is used as a way to split the translation batches
-    let suffix = "::";
-
     // Read the JSON file
     let file_path = Path::new("data/input.json");
     let json_value: Value = read_json(file_path)?;
@@ -60,14 +58,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     flatten_json(&json_value, &mut flat_map, "");
 
     // Translate the values
-    let translated_values = translate_values(
-        &values_to_translate,
-        api_key,
-        target_lang,
-        suffix,
-        &mut cache,
-    )
-    .await?;
+    let translated_values =
+        translate_values(&values_to_translate, api_key, target_lang, &mut cache).await?;
 
     // Update the flat map with the translated values
     for (key, value) in &mut flat_map {
@@ -197,7 +189,6 @@ async fn translate_values(
     values: &[(String, String)],
     api_key: &str,
     target_lang: &str,
-    suffix: &str,
     cache: &mut HashMap<String, String>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut translated = HashMap::new();
@@ -213,12 +204,11 @@ async fn translate_values(
             continue;
         }
 
-        let new_length = batch_length + value.len() + suffix.len();
+        let new_length = batch_length + value.len() + SPLIT_SUFFIX.len();
         if new_length > BATCH_SIZE_LIMIT {
             // Translate the current batch
             let translated_batch =
-                translate_batch(&batch, &keys_for_batch, api_key, target_lang, suffix, cache)
-                    .await?;
+                translate_batch(&batch, &keys_for_batch, api_key, target_lang, cache).await?;
             translated.extend(translated_batch);
 
             // Reset the batch and keys_for_batch
@@ -229,15 +219,15 @@ async fn translate_values(
 
         // Add the current value and key to the batch and keys_for_batch
         batch.push_str(value);
-        batch.push_str(suffix);
-        batch_length += value.len() + suffix.len();
+        batch.push_str(SPLIT_SUFFIX);
+        batch_length += value.len() + SPLIT_SUFFIX.len();
         keys_for_batch.push(key.clone());
     }
 
     // Translate the remaining batch
     if !batch.is_empty() {
         let translated_batch =
-            translate_batch(&batch, &keys_for_batch, api_key, target_lang, suffix, cache).await?;
+            translate_batch(&batch, &keys_for_batch, api_key, target_lang, cache).await?;
         translated.extend(translated_batch);
     }
 
@@ -249,7 +239,6 @@ async fn translate_batch(
     keys_for_batch: &[String],
     api_key: &str,
     target_lang: &str,
-    suffix: &str,
     cache: &mut HashMap<String, String>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut translated = HashMap::new();
@@ -291,7 +280,7 @@ async fn translate_batch(
         let translated_text = json["translations"][0]["text"].as_str().unwrap_or(batch);
 
         // Split the translated_text back into individual strings based on the suffix
-        let translated_values: Vec<&str> = translated_text.split(suffix).collect();
+        let translated_values: Vec<&str> = translated_text.split(SPLIT_SUFFIX).collect();
 
         // Map them back to their original keys and update the cache
         for (key, trans) in keys_for_batch.iter().zip(translated_values.iter()) {
