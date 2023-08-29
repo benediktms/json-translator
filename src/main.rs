@@ -12,7 +12,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::path::PathBuf;
 
-const BATCH_SIZE_LIMIT: usize = 1500;
+const BATCH_SIZE_LIMIT: usize = 5000;
 const SPLIT_SUFFIX: &str = "$::$";
 
 #[derive(Debug)]
