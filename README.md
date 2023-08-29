@@ -2,7 +2,7 @@
 Translates only the values of a JSON structure using the DeepL translation API
 
 ## Usage
-To use this applicaton you can simply clone this repo and fllow the following steps:
+You must have Rust and Cargo installed locally to use this application. Clone this repo and fllow the following steps:
 
 1. Create a `.env` file with two values:
      1. DEEPL_API_KEY=your-api-key-here
