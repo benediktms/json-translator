@@ -1,7 +1,3 @@
-extern crate dotenv;
-extern crate reqwest;
-extern crate serde_json;
-
 use chrono::Utc;
 use dotenv::dotenv;
 use serde_json::json;
@@ -14,15 +10,36 @@ use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::path::PathBuf;
+
+const BATCH_SIZE_LIMIT: usize = 1500;
+
+#[derive(Debug)]
+struct Config {
+    api_key: String,
+    target_lang: String,
+}
+
+impl Config {
+    fn from_env() -> Result<Self, env::VarError> {
+        Ok(Self {
+            api_key: env::var("DEEPL_API_KEY")?,
+            target_lang: env::var("TARGET_LANG")?,
+        })
+    }
+    fn cache_path(&self) -> PathBuf {
+        Path::new("data").join(format!("cache_{}.json", self.target_lang))
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    let api_key = env::var("DEEPL_API_KEY").expect("DEEPL_API_KEY must be set");
-    let target_lang = env::var("TARGET_LANG").expect("TARGET_LANG must be set");
+    let config = Config::from_env().expect("Failed to read environment variables");
+    let api_key = &config.api_key;
+    let target_lang = &config.target_lang;
+    let cache_path = &config.cache_path();
 
-    let cache_name = format!("data/cache_{}.json", target_lang);
-    let cache_path = Path::new(&cache_name);
     let mut cache: HashMap<String, String> = match fs::read_to_string(cache_path) {
         Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
         Err(_) => HashMap::new(),
@@ -45,8 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Translate the values
     let translated_values = translate_values(
         &values_to_translate,
-        &api_key,
-        &target_lang,
+        api_key,
+        target_lang,
         suffix,
         &mut cache,
     )
@@ -183,8 +200,6 @@ async fn translate_values(
     suffix: &str,
     cache: &mut HashMap<String, String>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    const BATCH_SIZE: usize = 1500;
-
     let mut translated = HashMap::new();
     let mut batch = String::new();
     let mut batch_length = 0;
@@ -199,7 +214,7 @@ async fn translate_values(
         }
 
         let new_length = batch_length + value.len() + suffix.len();
-        if new_length > BATCH_SIZE {
+        if new_length > BATCH_SIZE_LIMIT {
             // Translate the current batch
             let translated_batch =
                 translate_batch(&batch, &keys_for_batch, api_key, target_lang, suffix, cache)
