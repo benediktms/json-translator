@@ -21,7 +21,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api_key = env::var("DEEPL_API_KEY").expect("DEEPL_API_KEY must be set");
     let target_lang = env::var("TARGET_LANG").expect("TARGET_LANG must be set");
 
-    let cache_path = "data/cache.json";
+    let cache_name = format!("data/cache_{}.json", target_lang);
+    let cache_path = Path::new(&cache_name);
     let mut cache: HashMap<String, String> = match fs::read_to_string(cache_path) {
         Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
         Err(_) => HashMap::new(),
